@@ -15,11 +15,7 @@ class EncoderLayer(nn.Module):
         self.activation = F.relu if activation == "relu" else F.gelu
 
     def forward(self, x, attn_mask=None, tau=None, delta=None):
-        new_x, attn = self.attention(
-            x, x, x,
-            attn_mask=attn_mask,
-            tau=tau, delta=delta
-        )
+        new_x, attn = self.attention(x, x, x, attn_mask=attn_mask, tau=tau, delta=delta)
         x = x + self.dropout(new_x)
 
         y = x = self.norm1(x)
@@ -33,14 +29,18 @@ class Encoder(nn.Module):
     def __init__(self, attn_layers, conv_layers=None, norm_layer=None):
         super(Encoder, self).__init__()
         self.attn_layers = nn.ModuleList(attn_layers)
-        self.conv_layers = nn.ModuleList(conv_layers) if conv_layers is not None else None
+        self.conv_layers = (
+            nn.ModuleList(conv_layers) if conv_layers is not None else None
+        )
         self.norm = norm_layer
 
     def forward(self, x, attn_mask=None, tau=None, delta=None):
         # x [B, L, D]
         attns = []
         if self.conv_layers is not None:
-            for i, (attn_layer, conv_layer) in enumerate(zip(self.attn_layers, self.conv_layers)):
+            for i, (attn_layer, conv_layer) in enumerate(
+                zip(self.attn_layers, self.conv_layers)
+            ):
                 delta = delta if i == 0 else None
                 x, attn = attn_layer(x, attn_mask=attn_mask, tau=tau, delta=delta)
                 x = conv_layer(x)

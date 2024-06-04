@@ -9,7 +9,7 @@ import warnings
 import numpy as np
 import wandb
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 
 class Exp_Forecast(object):
@@ -25,7 +25,7 @@ class Exp_Forecast(object):
         wandb.init(
             # mode="disabled",
             project="XTY",
-            name = (
+            name=(
                 "model_id: {}, "
                 "seq_len: {}, "
                 "pred_len: {}, "
@@ -45,33 +45,33 @@ class Exp_Forecast(object):
                     args.n_heads,
                     args.e_layers,
                     args.d_ff,
-                    args.dropout
+                    args.dropout,
                 )
             ),
-            
             # track hyperparameters and run metadata
             config={
-            "seq length": "{}".format(args.seq_len),
-            "pred length": "{}".format(args.pred_len),
-            "d_model": "{}".format(args.d_model),
-            "batch_size": "{}".format(args.batch_size),
-            "learning_rate": "{}".format(args.learning_rate),
-            "n_heads": "{}".format(args.n_heads),
-            "e_layers": "{}".format(args.e_layers),
-            "d_ff": "{}".format(args.d_ff),
-            "dropout": "{}".format(args.dropout),
-            }
+                "seq length": "{}".format(args.seq_len),
+                "pred length": "{}".format(args.pred_len),
+                "d_model": "{}".format(args.d_model),
+                "batch_size": "{}".format(args.batch_size),
+                "learning_rate": "{}".format(args.learning_rate),
+                "n_heads": "{}".format(args.n_heads),
+                "e_layers": "{}".format(args.e_layers),
+                "d_ff": "{}".format(args.d_ff),
+                "dropout": "{}".format(args.dropout),
+            },
         )
 
     def _acquire_device(self):
         if self.args.use_gpu:
-            os.environ["CUDA_VISIBLE_DEVICES"] = str(
-                self.args.gpu) if not self.args.use_multi_gpu else self.args.devices
-            device = torch.device('cuda:{}'.format(self.args.gpu))
-            print('Use GPU: cuda:{}'.format(self.args.gpu))
+            os.environ["CUDA_VISIBLE_DEVICES"] = (
+                str(self.args.gpu) if not self.args.use_multi_gpu else self.args.devices
+            )
+            device = torch.device("cuda:{}".format(self.args.gpu))
+            print("Use GPU: cuda:{}".format(self.args.gpu))
         else:
-            device = torch.device('cpu')
-            print('Use CPU')
+            device = torch.device("cpu")
+            print("Use CPU")
         return device
 
     def _build_model(self):
@@ -94,13 +94,15 @@ class Exp_Forecast(object):
         return criterion
 
     def _rsquared(self, preds, trues):
-        return 1. - np.mean((trues - preds) ** 2) / np.mean((trues - np.mean(trues)) ** 2)
+        return 1.0 - np.mean((trues - preds) ** 2) / np.mean(
+            (trues - np.mean(trues)) ** 2
+        )
 
     def train(self):
-        print('>>>>>>> Loading training data >>>>>>>')
-        train_data, train_loader = self._get_data(flag='train')
-        print('>>>>>>> Loading testing data >>>>>>>')
-        test_data, test_loader = self._get_data(flag='test')
+        print(">>>>>>> Loading training data >>>>>>>")
+        train_data, train_loader = self._get_data(flag="train")
+        print(">>>>>>> Loading testing data >>>>>>>")
+        test_data, test_loader = self._get_data(flag="test")
 
         model_optim = self._select_optimizer()
         criterion = self._select_criterion()
@@ -108,7 +110,7 @@ class Exp_Forecast(object):
         self.model.train()
         for epoch in range(self.args.train_epochs):
             print("\n")
-            print('>>>>>>> Start training >>>>>>>')
+            print(">>>>>>> Start training >>>>>>>")
             iter_count = 0
             train_loss = []
             preds = []
@@ -130,18 +132,22 @@ class Exp_Forecast(object):
                 trues.append(current_y.detach().cpu().numpy())
 
                 if (i + 1) % 100 == 0:
-                    print("\tbatch: {0} / {1}, epoch: {2} | loss: {3:.7f}".format(i + 1, len(train_loader), epoch + 1, loss1.item()))
+                    print(
+                        "\tbatch: {0} / {1}, epoch: {2} | loss: {3:.7f}".format(
+                            i + 1, len(train_loader), epoch + 1, loss1.item()
+                        )
+                    )
 
             preds = np.concatenate(preds, axis=0)
             trues = np.concatenate(trues, axis=0)
 
             print("Train loss: ", np.mean(train_loss), "\n")
             print("R^2 train data:", self._rsquared(preds, trues))
-            print('>>>>>>> Start testing >>>>>>>')
+            print(">>>>>>> Start testing >>>>>>>")
             self.test(test_loader, criterion)
             wandb.log({"train_loss": np.mean(train_loss)})
 
-        torch.save(self.model.state_dict(), './output/Trained_model.pth')
+        torch.save(self.model.state_dict(), "./output/Trained_model.pth")
         wandb.finish()
 
     def test(self, test_loader, criterion):
@@ -178,16 +184,16 @@ class Exp_Forecast(object):
         return total_loss
 
     def predict(self, train_from_scratch=True):
-        print('\n')
-        print('>>>>>>> Loading predicting data >>>>>>>')
-        predict_data, predict_loader = self._get_data(flag='pred')
+        print("\n")
+        print(">>>>>>> Loading predicting data >>>>>>>")
+        predict_data, predict_loader = self._get_data(flag="pred")
 
         if not train_from_scratch:
             self.model.load_state_dict(torch.load("./output/Trained_model.pth"))
 
         preds_y = []
 
-        print('>>>>>>> Start predicting >>>>>>>')
+        print(">>>>>>> Start predicting >>>>>>>")
         self.model.eval()
         with torch.no_grad():
             for i, past_features in enumerate(predict_loader):
@@ -201,5 +207,5 @@ class Exp_Forecast(object):
 
         preds_y = np.concatenate(preds_y, axis=0)
         preds_y = predict_data.inverse_transform_y(preds_y)
-        
+
         return preds_y

@@ -1,5 +1,6 @@
 import torch.nn as nn
 
+
 class DataEmbedding_inverted(nn.Module):
     def __init__(self, c_in, d_model, dropout=0.1):
         super(DataEmbedding_inverted, self).__init__()
@@ -10,4 +11,3 @@ class DataEmbedding_inverted(nn.Module):
         x = x.permute(0, 2, 1)
         x = self.value_embedding(x)
         return self.dropout(x)
-

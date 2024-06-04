@@ -7,15 +7,16 @@ import warnings
 from scipy.ndimage import gaussian_filter1d
 
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
+
 
 class Dataset_TrainTest(Dataset):
-    def __init__(self, flag='train', size=None, data_path=None):
+    def __init__(self, flag="train", size=None, data_path=None):
 
         self.seq_len = size[0]
         self.pred_len = size[1]
-        assert flag in ['train', 'test']
-        type_map = {'train': 0, 'test': 1}
+        assert flag in ["train", "test"]
+        type_map = {"train": 0, "test": 1}
         self.set_type = type_map[flag]
 
         self.data_path = data_path
@@ -31,32 +32,79 @@ class Dataset_TrainTest(Dataset):
         df_new = df_raw[cols]
 
         for col in cols:
-            if 'askRate' in col:
-                bid_col = col.replace('askRate', 'bidRate')
-                df_new[f'sum_{col}'] = 0.5 * (df_raw[col] + df_raw[bid_col])
-            elif 'askSize' in col:
-                bid_col = col.replace('askSize', 'bidSize')
-                df_new[f'ratio_{col}'] = (df_raw[bid_col] - df_raw[col]) / (df_raw[bid_col] + df_raw[col])
-                df_new[f'ratio2_{col}'] = (df_raw[bid_col]) / (df_raw[bid_col] + df_raw[col])
-                df_new[f'ratio3_{col}'] = (df_raw[col]) / (df_raw[bid_col] + df_raw[col])
-                df_new[f'diff_{col}'] = (df_raw[bid_col] - df_raw[col])
-                df_new[f'sum_{col}'] = (df_raw[bid_col] + df_raw[col])
+            if "askRate" in col:
+                bid_col = col.replace("askRate", "bidRate")
+                df_new[f"sum_{col}"] = 0.5 * (df_raw[col] + df_raw[bid_col])
+            elif "askSize" in col:
+                bid_col = col.replace("askSize", "bidSize")
+                df_new[f"ratio_{col}"] = (df_raw[bid_col] - df_raw[col]) / (
+                    df_raw[bid_col] + df_raw[col]
+                )
+                df_new[f"ratio2_{col}"] = (df_raw[bid_col]) / (
+                    df_raw[bid_col] + df_raw[col]
+                )
+                df_new[f"ratio3_{col}"] = (df_raw[col]) / (
+                    df_raw[bid_col] + df_raw[col]
+                )
+                df_new[f"diff_{col}"] = df_raw[bid_col] - df_raw[col]
+                df_new[f"sum_{col}"] = df_raw[bid_col] + df_raw[col]
 
         df_new.fillna(0, inplace=True)
         df_new.replace([np.inf, -np.inf], 0, inplace=True)
-        df_new['modeAskDepth'] =  df_raw.iloc[:,15:30].max(axis=1)
-        df_new['modeBidDepth'] =  df_raw.iloc[:,45:60].max(axis=1)
-        df_new['modeAskRate'] =  df_raw.iloc[:,0:15].max(axis=1)
-        df_new['modeBidRate'] =  df_raw.iloc[:,30:45].max(axis=1)
+        df_new["modeAskDepth"] = df_raw.iloc[:, 15:30].max(axis=1)
+        df_new["modeBidDepth"] = df_raw.iloc[:, 45:60].max(axis=1)
+        df_new["modeAskRate"] = df_raw.iloc[:, 0:15].max(axis=1)
+        df_new["modeBidRate"] = df_raw.iloc[:, 30:45].max(axis=1)
 
-        df_new['meanAskDepth'] =  df_raw.iloc[:,15:30].mean(axis=1)
-        df_new['meanBidDepth'] =  df_raw.iloc[:,45:60].mean(axis=1)
-        df_new['meanAskRate'] =  df_raw.iloc[:,0:15].mean(axis=1)
-        df_new['meanBidRate'] =  df_raw.iloc[:,30:45].mean(axis=1)
+        df_new["meanAskDepth"] = df_raw.iloc[:, 15:30].mean(axis=1)
+        df_new["meanBidDepth"] = df_raw.iloc[:, 45:60].mean(axis=1)
+        df_new["meanAskRate"] = df_raw.iloc[:, 0:15].mean(axis=1)
+        df_new["meanBidRate"] = df_raw.iloc[:, 30:45].mean(axis=1)
+
+        for i in range(6):
+            df_new[f"bidAskVolume{i}"] = (
+                df_raw[f"bidRate{i}"] * df_raw[f"bidSize{i}"]
+                - df_raw[f"askRate{i}"] * df_raw[f"askSize{i}"]
+            )
+
+        ask_rate = df_raw[[f"askRate{i}" for i in range(15)]].values
+        bid_rate = df_raw[[f"bidRate{i}" for i in range(15)]].values
+        ask_size = df_raw[[f"askSize{i}" for i in range(15)]].values
+        bid_size = df_raw[[f"bidSize{i}" for i in range(15)]].values
+        ask_size_cumm = np.cumsum(ask_size, axis=1)
+        bid_size_cumm = np.cumsum(bid_size, axis=1)
+        ask_rate_cumm = np.cumsum(ask_rate, axis=1)
+        bid_rate_cumm = np.cumsum(bid_rate, axis=1)
+
+        imbalance_cols = [f"imbalance{i}" for i in range(15)]
+        df_new = pd.concat(
+            [
+                df_new,
+                pd.DataFrame(
+                    (ask_size_cumm - bid_size_cumm)
+                    / (ask_size_cumm + bid_size_cumm + 1),
+                    columns=imbalance_cols,
+                ),
+            ],
+            axis=1,
+        )
 
         derivatives = df_new.diff().fillna(0)
         derivatives.columns = [f"{col}_derivative" for col in df_new.columns]
         df_new = pd.concat([df_new, derivatives], axis=1)
+
+        imbalance_cols_rates = [f"imbalancerates{i}" for i in range(15)]
+        df_new = pd.concat(
+            [
+                df_new,
+                pd.DataFrame(
+                    (ask_rate_cumm - bid_rate_cumm)
+                    / (ask_rate_cumm + bid_rate_cumm + 1),
+                    columns=imbalance_cols_rates,
+                ),
+            ],
+            axis=1,
+        )
 
         df_new["y"] = df_raw["y"]
         df_raw = df_new
@@ -73,13 +121,14 @@ class Dataset_TrainTest(Dataset):
         cols_data = df_raw.columns[:]
         df_data = df_raw[cols_data]
 
-        train_data = df_data[border1s[0]:border2s[0]]
+        train_data = df_data[border1s[0] : border2s[0]]
         self.scaler.fit(train_data.values)
         data = self.scaler.transform(df_data.values)
 
-
         if self.set_type == 0:
-            np.savez("output/data_norm.npz", mean=self.scaler.mean_, scale=self.scaler.scale_)
+            np.savez(
+                "output/data_norm.npz", mean=self.scaler.mean_, scale=self.scaler.scale_
+            )
 
         self.data_x = data[border1:border2]
 
@@ -87,13 +136,13 @@ class Dataset_TrainTest(Dataset):
         s_begin = index
         s_end = s_begin + self.seq_len
 
-        seq_x = self.data_x[s_begin:s_end,:-1].copy()
-        ys = self.data_x[s_end-1,-1]
+        seq_x = self.data_x[s_begin:s_end, :-1].copy()
+        ys = self.data_x[s_end - 1, -1]
 
         return seq_x, ys
 
     def __len__(self):
-        return len(self.data_x) - self.seq_len + 1 #- 1
+        return len(self.data_x) - self.seq_len + 1  # - 1
 
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
@@ -123,6 +172,7 @@ class Dataset_TrainTest(Dataset):
             output[:, col_idx] = np.real(np.fft.ifft(fft_col))
         return output
 
+
 class Dataset_Predict(Dataset):
     def __init__(self, flag="pred", size=None, data_path=None):
 
@@ -138,24 +188,71 @@ class Dataset_Predict(Dataset):
         cols = list(df_raw.columns)
         df_new = df_raw[cols]
         for col in df_raw.columns:
-            if 'askRate' in col:
-                bid_col = col.replace('askRate', 'bidRate')
-                df_new[f'sum_{col}'] = 0.5 * (df_raw[col] + df_raw[bid_col])
-            elif 'askSize' in col:
-                bid_col = col.replace('askSize', 'bidSize')
-                df_new[f'ratio_{col}'] = (df_raw[bid_col] - df_raw[col]) / (df_raw[bid_col] + df_raw[col])
-                df_new[f'diff_{col}'] = (df_raw[bid_col] - df_raw[col])
-                df_new[f'sum_{col}'] = (df_raw[bid_col] + df_raw[col])
+            if "askRate" in col:
+                bid_col = col.replace("askRate", "bidRate")
+                df_new[f"sum_{col}"] = 0.5 * (df_raw[col] + df_raw[bid_col])
+            elif "askSize" in col:
+                bid_col = col.replace("askSize", "bidSize")
+                df_new[f"ratio_{col}"] = (df_raw[bid_col] - df_raw[col]) / (
+                    df_raw[bid_col] + df_raw[col]
+                )
+                df_new[f"diff_{col}"] = df_raw[bid_col] - df_raw[col]
+                df_new[f"sum_{col}"] = df_raw[bid_col] + df_raw[col]
 
-        df_new['modeAskDepth'] =  df_raw.iloc[:,15:30].max(axis=1)
-        df_new['modeBidDepth'] =  df_raw.iloc[:,45:60].max(axis=1)
-        df_new['modeAskRate'] =  df_raw.iloc[:,0:15].max(axis=1)
-        df_new['modeBidRate'] =  df_raw.iloc[:,30:45].max(axis=1)
+        df_new["modeAskDepth"] = df_raw.iloc[:, 15:30].max(axis=1)
+        df_new["modeBidDepth"] = df_raw.iloc[:, 45:60].max(axis=1)
+        df_new["modeAskRate"] = df_raw.iloc[:, 0:15].max(axis=1)
+        df_new["modeBidRate"] = df_raw.iloc[:, 30:45].max(axis=1)
 
-        df_new['meanAskDepth'] =  df_raw.iloc[:,15:30].mean(axis=1)
-        df_new['meanBidDepth'] =  df_raw.iloc[:,45:60].mean(axis=1)
-        df_new['meanAskRate'] =  df_raw.iloc[:,0:15].mean(axis=1)
-        df_new['meanBidRate'] =  df_raw.iloc[:,30:45].mean(axis=1)
+        df_new["meanAskDepth"] = df_raw.iloc[:, 15:30].mean(axis=1)
+        df_new["meanBidDepth"] = df_raw.iloc[:, 45:60].mean(axis=1)
+        df_new["meanAskRate"] = df_raw.iloc[:, 0:15].mean(axis=1)
+        df_new["meanBidRate"] = df_raw.iloc[:, 30:45].mean(axis=1)
+
+        for i in range(6):
+            df_new[f"bidAskVolume{i}"] = (
+                df_raw[f"bidRate{i}"] * df_raw[f"bidSize{i}"]
+                - df_raw[f"askRate{i}"] * df_raw[f"askSize{i}"]
+            )
+
+        ask_rate = df_raw[[f"askRate{i}" for i in range(15)]].values
+        bid_rate = df_raw[[f"bidRate{i}" for i in range(15)]].values
+        ask_size = df_raw[[f"askSize{i}" for i in range(15)]].values
+        bid_size = df_raw[[f"bidSize{i}" for i in range(15)]].values
+        ask_size_cumm = np.cumsum(ask_size, axis=1)
+        bid_size_cumm = np.cumsum(bid_size, axis=1)
+        ask_rate_cumm = np.cumsum(ask_rate, axis=1)
+        bid_rate_cumm = np.cumsum(bid_rate, axis=1)
+
+        imbalance_cols = [f"imbalance{i}" for i in range(15)]
+        df_new = pd.concat(
+            [
+                df_new,
+                pd.DataFrame(
+                    (ask_size_cumm - bid_size_cumm)
+                    / (ask_size_cumm + bid_size_cumm + 1),
+                    columns=imbalance_cols,
+                ),
+            ],
+            axis=1,
+        )
+
+        derivatives = df_new.diff().fillna(0)
+        derivatives.columns = [f"{col}_derivative" for col in df_new.columns]
+        df_new = pd.concat([df_new, derivatives], axis=1)
+
+        imbalance_cols_rates = [f"imbalancerates{i}" for i in range(15)]
+        df_new = pd.concat(
+            [
+                df_new,
+                pd.DataFrame(
+                    (ask_rate_cumm - bid_rate_cumm)
+                    / (ask_rate_cumm + bid_rate_cumm + 1),
+                    columns=imbalance_cols_rates,
+                ),
+            ],
+            axis=1,
+        )
 
         derivatives = df_new.diff().fillna(0)
         derivatives.columns = [f"{col}_derivative" for col in df_new.columns]
@@ -165,8 +262,8 @@ class Dataset_Predict(Dataset):
         data = df_raw.values
 
         data_norm = np.load("./output/data_norm.npz")
-        self.means = data_norm['mean']
-        self.scales = data_norm['scale']
+        self.means = data_norm["mean"]
+        self.scales = data_norm["scale"]
         data = (data - self.means[:-1]) / self.scales[:-1]
 
         self.data_x = data
@@ -175,7 +272,7 @@ class Dataset_Predict(Dataset):
         s_begin = index
         s_end = s_begin + self.seq_len
 
-        seq_x = self.data_x[s_begin:s_end,:]
+        seq_x = self.data_x[s_begin:s_end, :]
 
         return seq_x
 

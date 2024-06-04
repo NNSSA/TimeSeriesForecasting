@@ -4,7 +4,7 @@ import random
 import numpy as np
 from config import args
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # fix seed for reproducibility's sake
     fix_seed = 2023
     random.seed(fix_seed)
@@ -15,7 +15,7 @@ if __name__ == '__main__':
     Exp = Exp_Forecast
     exp = Exp(args)
 
-    # want to train from scratch? 
+    # want to train from scratch?
     args.train_from_scratch = True
 
     # data path for prediction data - modify as desired
@@ -23,7 +23,7 @@ if __name__ == '__main__':
 
     # training bit
     if args.train_from_scratch:
-        print('>>>>>>> Training arguments >>>>>>>')
+        print(">>>>>>> Training arguments >>>>>>>")
         for key, value in vars(args).items():
             print(f"{key}: {value}")
         print("\n")
@@ -35,10 +35,10 @@ if __name__ == '__main__':
     # add seq_len-1 zeros at the front to match the prediction data length
     pad_with_zeros = False
     if pad_with_zeros:
-        preds_y = np.concatenate((np.zeros(args.seq_len-1), preds_y))
+        preds_y = np.concatenate((np.zeros(args.seq_len - 1), preds_y))
 
     np.save("./output/y_predictions.npy", preds_y)
 
-    print('>>>>>>> Finished, results saved in output folder >>>>>>>')
+    print(">>>>>>> Finished, results saved in output folder >>>>>>>")
 
     torch.cuda.empty_cache()
