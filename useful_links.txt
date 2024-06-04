@@ -1,0 +1,23 @@
+- https://www.reddit.com/r/algotrading/comments/16lvhgv/what_did_xtx_want_participants_to_predict_in_the/
+
+- https://www.youtube.com/watch?v=Nv7l3_ealKc
+
+- https://github.com/alexbotsula/XTX_Challenge
+
+- https://medium.com/@a.botsula/using-kalman-filters-to-derive-predictive-factors-from-limit-order-book-data-2242eef97d80
+
+- https://github.com/yutanpo/XTXStarterKit
+
+- https://github.com/yeungsl/XTX_challenge
+
+- https://github.com/IamMiracleAlex/XTX-Stock-Market-Price-Forecast
+
+- https://github.com/chrischia06/XTXForecastingChallenge
+
+- https://github.com/glowsplint/xtx/tree/master
+
+- https://github.com/trainindata/feature-engineering-for-time-series-forecasting
+
+- https://github.com/borisbanushev/stockpredictionai
+
+- https://github.com/georgezouq/awesome-ai-in-finance
